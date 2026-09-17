@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B5E45">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Mis finanzas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F1F4F1; --card:#FFFFFF; --ink:#152019; --ink-2:#4B5851; --ink-3:#8A948E;
+    --line:#D9DFDA; --green:#1B5E45; --green-soft:#DCEBE2; --amber:#B8741E; --amber-soft:#F6E8D3;
+    --red:#B0392E; --red-soft:#F5DEDA; --blue:#2A4E7A; --blue-soft:#DDE6F1;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0F1512; --card:#171F1B; --ink:#EEF2EF; --ink-2:#B4BDB7; --ink-3:#7C867F;
+      --line:#2A342E; --green:#5FB58C; --green-soft:#1E332A; --amber:#E0A04A; --amber-soft:#3A2C17;
+      --red:#E07A6E; --red-soft:#3B1F1C; --blue:#7FA6D6; --blue-soft:#1C2A3B;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased}
+  body{padding:max(16px,env(safe-area-inset-top)) 16px 40px; line-height:1.4}
+  main{max-width:560px;margin:0 auto}
+  h1{font-size:15px;font-weight:500;color:var(--ink-2);margin:6px 0 2px}
+  h2{font-size:17px;font-weight:600;margin:28px 0 10px}
+  .num{font-variant-numeric:tabular-nums}
+  .muted{color:var(--ink-3)}
+  .small{font-size:13px}
+
+  /* Hero */
+  .hero{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 18px 16px;margin-top:10px}
+  .hero .label{font-size:15px;color:var(--ink-2)}
+  .hero .resto{font-size:44px;font-weight:600;letter-spacing:-0.02em;line-height:1.05;margin:2px 0 14px}
+  .bar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line)}
+  .bar span{display:block;height:100%}
+  .bar .f{background:var(--ink)} .bar .c{background:var(--blue)} .bar .v{background:var(--amber)} .bar .r{background:var(--green)}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-top:12px;font-size:14px}
+  .legend div{display:flex;justify-content:space-between;gap:8px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:-1px}
+  .legend .name{color:var(--ink-2)}
+  .legend .f i{background:var(--ink)} .legend .c i{background:var(--blue)} .legend .v i{background:var(--amber)} .legend .r i{background:var(--green)}
+
+  /* Checklist */
+  .list{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .row{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;padding:13px 14px;border-top:1px solid var(--line)}
+  .row:first-child{border-top:0}
+  .day{width:44px;height:44px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--paper);color:var(--ink-2);font-size:12px;line-height:1}
+  .day b{font-size:18px;font-weight:600;color:var(--ink);margin-bottom:2px}
+  .row .what{font-size:15px}
+  .row .sub{font-size:13px;color:var(--ink-3);margin-top:2px}
+  .row .amt{font-size:16px;font-weight:600;text-align:right}
+  .row.done .what,.row.done .amt{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--ink-3)}
+  .row.done .day{background:var(--green-soft);color:var(--green)} .row.done .day b{color:var(--green)}
+  .row.late .day{background:var(--red-soft);color:var(--red)} .row.late .day b{color:var(--red)}
+  .row.auto .day{background:var(--blue-soft);color:var(--blue)} .row.auto .day b{color:var(--blue)}
+  .tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--paper);color:var(--ink-2);margin-top:4px}
+  .row.late .tag{background:var(--red-soft);color:var(--red)}
+  .row.done .tag{background:var(--green-soft);color:var(--green)}
+  .row.auto .tag{background:var(--blue-soft);color:var(--blue)}
+  .empty{padding:18px 14px;color:var(--ink-3);font-size:14px}
+
+  /* Cuotas */
+  .cuota .prog{height:6px;border-radius:3px;background:var(--line);margin-top:7px;overflow:hidden}
+  .cuota .prog span{display:block;height:100%;background:var(--blue)}
+  .proj{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end;height:120px;padding:14px 14px 6px}
+  .proj .m{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:11px;color:var(--ink-3)}
+  .proj .m .v{font-size:11px;color:var(--ink-2);margin-bottom:4px;white-space:nowrap}
+  .proj .m .b{width:100%;background:var(--blue);border-radius:4px 4px 0 0;min-height:2px}
+  .proj .m .n{margin-top:6px}
+  .proj .m.now .b{background:var(--ink)}
+
+  /* Footer */
+  footer{margin-top:34px;font-size:13px;color:var(--ink-3);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  footer a{color:var(--ink-2)}
+  button{font:inherit;font-size:14px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+  button:focus-visible,a:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+  .notice{background:var(--amber-soft);color:var(--ink);border-radius:14px;padding:14px 16px;font-size:14px;margin-top:14px;line-height:1.5}
+  .notice code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-size:13px}
+  .skeleton{opacity:.45}
+  @media (prefers-reduced-motion:no-preference){ .row,.hero{transition:opacity .2s} }
+</style>
+</head>
+<body>
+<main id="app">
+  <h1 id="mes">Cargando…</h1>
+  <section class="hero skeleton" id="hero">
+    <div class="label">Te queda este mes</div>
+    <div class="resto num">—</div>
+    <div class="bar"><span class="f" style="width:0"></span><span class="c" style="width:0"></span><span class="v" style="width:0"></span><span class="r" style="width:100%"></span></div>
+    <div class="legend"></div>
+  </section>
+  <div id="content"></div>
+  <footer>
+    <span id="updated"></span>
+    <span><a id="sheetlink" href="#" target="_blank" rel="noopener">Abrir la hoja</a> &nbsp; <button id="refresh" type="button">Actualizar</button></span>
+  </footer>
+</main>
+
+<script>
+/* ===== Configuración ===== */
+const SHEET_ID = "1RjP7aiCgD-bJxYjHCbANq4Rc3NJOiQCQ8Cz38B9cjhk";
+/* ========================= */
+
+const $ = (s, el=document) => el.querySelector(s);
+const fmt = new Intl.NumberFormat("es-AR", {style:"currency", currency:"ARS", maximumFractionDigits:0});
+const money = n => fmt.format(Math.round(n));
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const MES_CORTO = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+document.getElementById("sheetlink").href = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+
+let cbCounter = 0;
+function loadTab(sheet, range){
+  // Lectura vía JSONP (etiqueta <script>): funciona desde cualquier origen, incluso abriendo el archivo localmente.
+  return new Promise((resolve, reject) => {
+    const cb = `__gviz_cb_${++cbCounter}_${Date.now()}`;
+    let u = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=0&sheet=${encodeURIComponent(sheet)}`;
+    if (range) u += `&range=${encodeURIComponent(range)}`;
+    u += `&_=${Date.now()}`;
+    const s = document.createElement("script");
+    const timer = setTimeout(() => fail(new Error(`Google no respondió al leer la pestaña "${sheet}".`)), 20000);
+    function cleanup(){ clearTimeout(timer); delete window[cb]; s.remove(); }
+    function fail(e){ cleanup(); reject(e); }
+    window[cb] = j => {
+      cleanup();
+      if (j.status === "error") return reject(new Error((j.errors||[]).map(e=>e.detailed_message||e.message).join("; ") || `error al leer "${sheet}"`));
+      resolve((j.table.rows||[]).map(r => (r.c||[]).map(c => c ? cell(c.v) : null)));
+    };
+    s.onerror = () => fail(new Error(`No se pudo acceder a la hoja (pestaña "${sheet}"). Suele pasar cuando la hoja no está publicada o el ID es incorrecto.`));
+    s.src = u;
+    document.head.appendChild(s);
+  });
+}
+function cell(v){
+  if (typeof v === "string"){
+    const m = v.match(/^Date\((\d+),(\d+),(\d+)/);
+    if (m) return new Date(+m[1], +m[2], +m[3]);
+    return v.trim();
+  }
+  return v;
+}
+const isNum = v => typeof v === "number" && isFinite(v);
+const isDate = v => v instanceof Date && !isNaN(v);
+const sameMonth = (d, ref) => isDate(d) && d.getFullYear()===ref.getFullYear() && d.getMonth()===ref.getMonth();
+const monthStart = d => new Date(d.getFullYear(), d.getMonth(), 1);
+const addMonths = (d, n) => new Date(d.getFullYear(), d.getMonth()+n, 1);
+const monthsDiff = (a, b) => (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth());
+
+async function load(){
+  const today = new Date();
+  $("#mes").textContent = `${MESES[today.getMonth()][0].toUpperCase()+MESES[today.getMonth()].slice(1)} ${today.getFullYear()}`;
+  $("#hero").classList.add("skeleton");
+  try{
+    const [resumen, fijosRaw, cuotasRaw, varsRaw, ingRaw, pagosRaw, tarjRaw] = await Promise.all([
+      loadTab("Resumen", "A4:B5"),
+      loadTab("Fijos"), loadTab("Cuotas"), loadTab("Variables"), loadTab("Ingresos"), loadTab("Pagos"), loadTab("Tarjetas")
+    ]);
+
+    const sueldo = isNum(resumen[0]?.[1]) ? resumen[0][1] : 0;
+    const estimadoVar = isNum(resumen[1]?.[1]) ? resumen[1][1] : 0;
+
+    const pagos = pagosRaw.filter(r => isDate(r[0]) && r[1]).map(r => ({fecha:r[0], concepto:String(r[1]), monto:r[2]||0}));
+    const pagadoEsteMes = concepto => pagos.some(p => sameMonth(p.fecha, today) && p.concepto.toLowerCase() === String(concepto).toLowerCase());
+
+    const fijos = fijosRaw.slice(1).filter(r => r[0] && isNum(r[1]) && !/^total/i.test(r[0]))
+      .map(r => ({concepto:r[0], monto:r[1], medio:String(r[2]||""), vence:isNum(r[3])?r[3]:null, nota:r[4]||""}));
+    const totalFijos = fijos.reduce((s,f)=>s+f.monto,0);
+
+    const ms = monthStart(today);
+    const cuotas = cuotasRaw.slice(1).filter(r => r[0] && isNum(r[2]) && isNum(r[3]) && isDate(r[4])).map(r => {
+      const primer = monthStart(r[4]); const total = r[3];
+      const ultimo = addMonths(primer, total-1);
+      const n = monthsDiff(primer, ms)+1;
+      const activa = n>=1 && n<=total;
+      return {concepto:r[0], tarjeta:String(r[1]||""), cuota:r[2], total, primer, ultimo, n:Math.min(Math.max(n,0),total), activa, empieza:n<1, terminada:n>total};
+    });
+    const cuotasMes = cuotas.filter(c=>c.activa).reduce((s,c)=>s+c.cuota,0);
+
+    const variables = varsRaw.slice(1).filter(r => isDate(r[0]) && isNum(r[2])).map(r=>({fecha:r[0], concepto:r[1], monto:r[2], medio:String(r[3]||"")}));
+    const varMes = variables.filter(v=>sameMonth(v.fecha,today));
+    const varCargadas = varMes.reduce((s,v)=>s+v.monto,0);
+
+    const extras = ingRaw.slice(1).filter(r => isDate(r[0]) && isNum(r[2]) && sameMonth(r[0],today)).reduce((s,r)=>s+r[2],0);
+    const ingresos = sueldo + extras;
+
+    const tarjetas = tarjRaw.slice(1).filter(r => r[0] && isNum(r[1])).map(r => {
+      const nombre = String(r[0]);
+      const fijosT = fijos.filter(f=>f.medio.toLowerCase()===nombre.toLowerCase()).reduce((s,f)=>s+f.monto,0);
+      const cuotasT = cuotas.filter(c=>c.activa && c.tarjeta.toLowerCase()===nombre.toLowerCase()).reduce((s,c)=>s+c.cuota,0);
+      const varT = varMes.filter(v=>v.medio.toLowerCase()===nombre.toLowerCase()).reduce((s,v)=>s+v.monto,0);
+      const auto = /autom/i.test(String(r[3]||""));
+      return {nombre, cierre:r[1], vence:isNum(r[2])?r[2]:null, auto, estimado:fijosT+cuotasT+varT, pagado:pagadoEsteMes("Tarjeta "+nombre), nota:r[8]||""};
+    });
+
+    const resto = ingresos - totalFijos - cuotasMes - estimadoVar;
+    render({today, sueldo, extras, ingresos, totalFijos, cuotasMes, estimadoVar, varCargadas, resto, fijos, cuotas, tarjetas, pagadoEsteMes});
+    $("#updated").textContent = `Actualizado ${today.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}`;
+  }catch(err){
+    $("#hero").classList.remove("skeleton");
+    $("#content").innerHTML = `<div class="notice"><strong>No pude leer la hoja.</strong><br>${escapeHtml(err.message)}<br><br>
+      Revisá que la hoja esté publicada: en Google Sheets, <em>Archivo → Compartir → Publicar en la web → Todo el documento → Publicar</em>. Después tocá “Actualizar”.</div>`;
+    $("#updated").textContent = "";
+  }
+}
+
+function render(d){
+  const {today} = d;
+  const hero = $("#hero"); hero.classList.remove("skeleton");
+  $(".resto", hero).textContent = money(d.resto);
+  $(".resto", hero).style.color = d.resto < 0 ? "var(--red)" : "var(--ink)";
+  const base = Math.max(d.ingresos, 1);
+  const pct = n => Math.max(0, Math.min(100, n/base*100)) + "%";
+  $(".bar .f", hero).style.width = pct(d.totalFijos);
+  $(".bar .c", hero).style.width = pct(d.cuotasMes);
+  $(".bar .v", hero).style.width = pct(d.estimadoVar);
+  $(".bar .r", hero).style.width = pct(Math.max(d.resto,0));
+  $(".legend", hero).innerHTML = `
+    <div class="f"><span class="name"><i></i>Fijos</span><span>${money(d.totalFijos)}</span></div>
+    <div class="c"><span class="name"><i></i>Cuotas</span><span>${money(d.cuotasMes)}</span></div>
+    <div class="v"><span class="name"><i></i>Variables (est.)</span><span>${money(d.estimadoVar)}</span></div>
+    <div class="r"><span class="name"><i></i>Ingresos</span><span>${money(d.ingresos)}</span></div>`;
+
+  // Pendientes: fijos manuales + tarjetas manuales
+  const manuales = d.fijos.filter(f => !/visa|master/i.test(f.medio)).map(f => ({
+    what:f.concepto, monto:f.monto, vence:f.vence, sub:f.nota, done:d.pagadoEsteMes(f.concepto), auto:false
+  }));
+  d.tarjetas.forEach(t => manuales.push({
+    what:`Tarjeta ${t.nombre}`, monto:t.estimado, vence:t.vence, auto:t.auto, done:t.pagado,
+    sub: t.auto ? "Débito automático" : "Estimado del próximo resumen"
+  }));
+  manuales.sort((a,b) => (a.vence??99)-(b.vence??99));
+
+  const dia = today.getDate();
+  const rows = manuales.map(m => {
+    const late = !m.done && !m.auto && m.vence && dia > m.vence;
+    const cls = m.done ? "done" : m.auto ? "auto" : late ? "late" : "";
+    const tag = m.done ? "Pagado" : m.auto ? "Automático" : late ? `Venció el ${m.vence}` : m.vence ? `Hasta el ${m.vence}` : "Sin fecha";
+    return `<div class="row ${cls}">
+      <div class="day">${m.vence ? `<b>${m.vence}</b><span>${MES_CORTO[today.getMonth()]}</span>` : `<b>—</b>`}</div>
+      <div><div class="what">${escapeHtml(m.what)}</div><div class="sub">${escapeHtml(m.sub||"")}</div><span class="tag">${tag}</span></div>
+      <div class="amt num">${money(m.monto)}</div>
+    </div>`;
+  }).join("");
+  const pendientes = manuales.filter(m=>!m.done && !m.auto).length;
+
+  // Cuotas
+  const activas = d.cuotas.filter(c=>c.activa).sort((a,b)=>b.cuota-a.cuota);
+  const cuotaRows = activas.map(c => `<div class="row cuota" style="grid-template-columns:1fr auto">
+      <div><div class="what">${escapeHtml(c.concepto)}</div>
+        <div class="sub">Cuota ${c.n} de ${c.total} · ${c.total-c.n===0 ? "última" : `quedan ${c.total-c.n}`} · termina ${MES_CORTO[c.ultimo.getMonth()]} ${c.ultimo.getFullYear()}</div>
+        <div class="prog"><span style="width:${c.n/c.total*100}%"></span></div></div>
+      <div class="amt num">${money(c.cuota)}</div>
+    </div>`).join("") || `<div class="empty">No hay cuotas activas.</div>`;
+
+  const ms = new Date(today.getFullYear(), today.getMonth(), 1);
+  const proj = Array.from({length:6}, (_,i) => {
+    const m = new Date(ms.getFullYear(), ms.getMonth()+i, 1);
+    const tot = d.cuotas.filter(c => c.primer <= m && c.ultimo >= m).reduce((s,c)=>s+c.cuota,0);
+    return {m, tot};
+  });
+  const maxP = Math.max(...proj.map(p=>p.tot), 1);
+  const projHtml = proj.map((p,i) => `<div class="m ${i===0?"now":""}">
+      <span class="v">${p.tot ? money(p.tot).replace(/\s/g,"") : "—"}</span>
+      <span class="b" style="height:${Math.max(p.tot/maxP*70, 2)}px"></span>
+      <span class="n">${MES_CORTO[p.m.getMonth()]}</span>
+    </div>`).join("");
+
+  // Fijos por medio
+  const fijosRows = d.fijos.map(f => `<div class="row" style="grid-template-columns:1fr auto">
+      <div><div class="what">${escapeHtml(f.concepto)}</div><div class="sub">${escapeHtml(f.medio)}${f.nota?" · "+escapeHtml(f.nota):""}</div></div>
+      <div class="amt num">${money(f.monto)}</div></div>`).join("");
+
+  $("#content").innerHTML = `
+    <h2>Para pagar ${pendientes ? `<span class="muted" style="font-weight:400">· ${pendientes} pendiente${pendientes>1?"s":""}</span>` : `<span class="muted" style="font-weight:400">· todo al día</span>`}</h2>
+    <div class="list">${rows || `<div class="empty">Nada pendiente.</div>`}</div>
+
+    <h2>Cuotas <span class="muted" style="font-weight:400">· ${money(d.cuotasMes)} este mes</span></h2>
+    <div class="list">${cuotaRows}<div class="proj" aria-label="Cuotas próximos 6 meses">${projHtml}</div></div>
+
+    <h2>Gastos fijos <span class="muted" style="font-weight:400">· ${money(d.totalFijos)}</span></h2>
+    <div class="list">${fijosRows}</div>
+
+    <p class="small muted" style="margin-top:18px">Variables cargadas este mes: <strong style="color:var(--ink)">${money(d.varCargadas)}</strong> de ${money(d.estimadoVar)} estimados.${d.extras ? ` Ingresos extra este mes: ${money(d.extras)}.` : ""}</p>`;
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+document.getElementById("refresh").addEventListener("click", load);
+load();
+</script>
+</body>
+</html>
