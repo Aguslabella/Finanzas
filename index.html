@@ -82,6 +82,12 @@
   button{font:inherit;font-size:14px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
   button:focus-visible,a:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 
+  .pay{font:inherit;font-size:13px;font-weight:600;color:#fff;background:var(--green);border:0;border-radius:999px;padding:7px 13px;cursor:pointer;margin-top:7px}
+  .pay:disabled{opacity:.55;cursor:default}
+  .row .amt{display:flex;flex-direction:column;align-items:flex-end}
+  .toast{position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-size:14px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 28px rgba(0,0,0,.25);z-index:9;max-width:92vw}
+  .toast button{color:var(--paper);background:transparent;border:1px solid rgba(255,255,255,.4);padding:4px 10px;font-size:13px;white-space:nowrap}
+  .toast.err{background:var(--red)}
   .notice{background:var(--amber-soft);color:var(--ink);border-radius:14px;padding:14px 16px;font-size:14px;margin-top:14px;line-height:1.5}
   .notice code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-size:13px}
   .skeleton{opacity:.45}
@@ -107,6 +113,7 @@
 <script>
 /* ===== Configuración ===== */
 const SHEET_ID = "1RjP7aiCgD-bJxYjHCbANq4Rc3NJOiQCQ8Cz38B9cjhk";
+const API_URL  = "https://script.google.com/macros/s/AKfycbx5HbuegXnScanBMc4X_hDhBKn49lphhImotg_smUgbMrRt0qicTtiY4OUFlNVT5QZX/exec"; // URL del script de Google (Apps Script → Implementar → Aplicación web). Vacío = botones desactivados.
 /* ========================= */
 
 const $ = (s, el=document) => el.querySelector(s);
@@ -229,23 +236,25 @@ function render(d){
 
   // Pendientes: fijos manuales + tarjetas manuales
   const manuales = d.fijos.filter(f => !/visa|master/i.test(f.medio)).map(f => ({
-    what:f.concepto, monto:f.monto, vence:f.vence, sub:f.nota, done:d.pagadoEsteMes(f.concepto), auto:false
+    what:f.concepto, concepto:f.concepto, monto:f.monto, vence:f.vence, sub:f.nota, done:d.pagadoEsteMes(f.concepto), auto:false, card:false
   }));
   d.tarjetas.forEach(t => manuales.push({
-    what:`Tarjeta ${t.nombre}`, monto:t.estimado, vence:t.vence, auto:t.auto, done:t.pagado,
+    what:`Tarjeta ${t.nombre}`, concepto:`Tarjeta ${t.nombre}`, monto:t.estimado, vence:t.vence, auto:t.auto, done:t.pagado, card:true,
     sub: t.auto ? "Débito automático" : "Estimado del próximo resumen"
   }));
   manuales.sort((a,b) => (a.vence??99)-(b.vence??99));
+  lastManuales = manuales;
 
   const dia = today.getDate();
-  const rows = manuales.map(m => {
+  const rows = manuales.map((m,i) => {
     const late = !m.done && !m.auto && m.vence && dia > m.vence;
     const cls = m.done ? "done" : m.auto ? "auto" : late ? "late" : "";
     const tag = m.done ? "Pagado" : m.auto ? "Automático" : late ? `Venció el ${m.vence}` : m.vence ? `Hasta el ${m.vence}` : "Sin fecha";
-    return `<div class="row ${cls}">
+    const btn = (!m.done && !m.auto) ? `<button class="pay" type="button" data-i="${i}" ${API_URL ? "" : 'disabled title="Falta configurar el script de Google"'}>Pagado</button>` : "";
+    return `<div class="row ${cls}" data-i="${i}">
       <div class="day">${m.vence ? `<b>${m.vence}</b><span>${MES_CORTO[today.getMonth()]}</span>` : `<b>—</b>`}</div>
       <div><div class="what">${escapeHtml(m.what)}</div><div class="sub">${escapeHtml(m.sub||"")}</div><span class="tag">${tag}</span></div>
-      <div class="amt num">${money(m.monto)}</div>
+      <div class="amt num"><span>${money(m.monto)}</span>${btn}</div>
     </div>`;
   }).join("");
   const pendientes = manuales.filter(m=>!m.done && !m.auto).length;
@@ -289,6 +298,56 @@ function render(d){
 
     <p class="small muted" style="margin-top:18px">Variables cargadas este mes: <strong style="color:var(--ink)">${money(d.varCargadas)}</strong> de ${money(d.estimadoVar)} estimados.${d.extras ? ` Ingresos extra este mes: ${money(d.extras)}.` : ""}</p>`;
 }
+
+/* ===== Marcar pagado (escribe en la hoja vía Apps Script) ===== */
+let lastManuales = [];
+async function api(payload){
+  const res = await fetch(API_URL, {method:"POST", redirect:"follow", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify(payload)});
+  let j; try { j = await res.json(); } catch { throw new Error("Respuesta inválida del script"); }
+  if (!j.ok) throw new Error(j.error || "Error del script");
+  return j;
+}
+function getPin(){
+  let pin = localStorage.getItem("fin_pin");
+  if (!pin){ pin = prompt("Clave de la app (la misma que pusiste en el script de Google):"); if (pin) localStorage.setItem("fin_pin", pin); }
+  return pin;
+}
+let toastTimer;
+function toast(msg, {undo, error} = {}){
+  document.querySelectorAll(".toast").forEach(t=>t.remove()); clearTimeout(toastTimer);
+  const t = document.createElement("div"); t.className = "toast" + (error ? " err" : "");
+  t.innerHTML = `<span>${escapeHtml(msg)}</span>` + (undo ? `<button type="button">Deshacer</button>` : "");
+  if (undo) t.querySelector("button").onclick = () => { t.remove(); undo(); };
+  document.body.appendChild(t);
+  toastTimer = setTimeout(()=>t.remove(), undo ? 9000 : 5000);
+}
+document.getElementById("content").addEventListener("click", async e => {
+  const b = e.target.closest(".pay"); if (!b) return;
+  const m = lastManuales[+b.dataset.i]; if (!m) return;
+  const pin = getPin(); if (!pin) return;
+  let monto = m.monto;
+  if (m.card){
+    const v = prompt(`¿Cuánto pagaste de ${m.what}? (total del resumen)`, Math.round(m.monto));
+    if (v === null) return;
+    monto = Number(String(v).replace(/[^\d.,]/g,"").replace(/\./g,"").replace(",", "."));
+    if (!isFinite(monto) || monto <= 0){ toast("Monto inválido", {error:true}); return; }
+  }
+  const row = b.closest(".row");
+  b.disabled = true; b.textContent = "Guardando…";
+  try{
+    await api({action:"pago", pin, concepto:m.concepto, monto, nota:"Marcado desde la app"});
+    row.classList.remove("late"); row.classList.add("done"); row.querySelector(".tag").textContent = "Pagado"; b.remove();
+    toast(`${m.what} marcado como pagado`, {undo: async () => {
+      try{ await api({action:"deshacer", pin, concepto:m.concepto}); toast("Deshecho"); load(); }
+      catch(err){ toast("No se pudo deshacer: " + err.message, {error:true}); }
+    }});
+    setTimeout(load, 2500);
+  }catch(err){
+    b.disabled = false; b.textContent = "Pagado";
+    if (/clave|pin/i.test(err.message)) localStorage.removeItem("fin_pin");
+    toast("No se guardó: " + err.message, {error:true});
+  }
+});
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
