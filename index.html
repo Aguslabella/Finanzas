@@ -307,10 +307,15 @@ async function api(payload){
   if (!j.ok) throw new Error(j.error || "Error del script");
   return j;
 }
-function getPin(){
-  let pin = localStorage.getItem("fin_pin");
-  if (!pin){ pin = prompt("Clave de la app (la misma que pusiste en el script de Google):"); if (pin) localStorage.setItem("fin_pin", pin); }
-  return pin;
+// Sin clave por defecto. Si el script la exige, la pide una vez y la recuerda.
+async function conClave(payload){
+  let pin = localStorage.getItem("fin_pin") || "";
+  try { return await api({...payload, pin}); }
+  catch(err){
+    if (!/clave|pin/i.test(err.message)) throw err;
+    pin = prompt("El script pide una clave:"); if (pin === null) throw new Error("Cancelado");
+    const r = await api({...payload, pin}); localStorage.setItem("fin_pin", pin); return r;
+  }
 }
 let toastTimer;
 function toast(msg, {undo, error} = {}){
@@ -324,7 +329,6 @@ function toast(msg, {undo, error} = {}){
 document.getElementById("content").addEventListener("click", async e => {
   const b = e.target.closest(".pay"); if (!b) return;
   const m = lastManuales[+b.dataset.i]; if (!m) return;
-  const pin = getPin(); if (!pin) return;
   let monto = m.monto;
   if (m.card){
     const v = prompt(`¿Cuánto pagaste de ${m.what}? (total del resumen)`, Math.round(m.monto));
@@ -335,17 +339,17 @@ document.getElementById("content").addEventListener("click", async e => {
   const row = b.closest(".row");
   b.disabled = true; b.textContent = "Guardando…";
   try{
-    await api({action:"pago", pin, concepto:m.concepto, monto, nota:"Marcado desde la app"});
+    await conClave({action:"pago", concepto:m.concepto, monto, nota:"Marcado desde la app"});
     row.classList.remove("late"); row.classList.add("done"); row.querySelector(".tag").textContent = "Pagado"; b.remove();
     toast(`${m.what} marcado como pagado`, {undo: async () => {
-      try{ await api({action:"deshacer", pin, concepto:m.concepto}); toast("Deshecho"); load(); }
+      try{ await conClave({action:"deshacer", concepto:m.concepto}); toast("Deshecho"); load(); }
       catch(err){ toast("No se pudo deshacer: " + err.message, {error:true}); }
     }});
     setTimeout(load, 2500);
   }catch(err){
     b.disabled = false; b.textContent = "Pagado";
     if (/clave|pin/i.test(err.message)) localStorage.removeItem("fin_pin");
-    toast("No se guardó: " + err.message, {error:true});
+    if (err.message !== "Cancelado") toast("No se guardó: " + err.message, {error:true});
   }
 });
 
