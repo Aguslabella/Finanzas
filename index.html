@@ -85,6 +85,19 @@
   .pay{font:inherit;font-size:13px;font-weight:600;color:#fff;background:var(--green);border:0;border-radius:999px;padding:7px 13px;cursor:pointer;margin-top:7px}
   .pay:disabled{opacity:.55;cursor:default}
   .row .amt{display:flex;flex-direction:column;align-items:flex-end}
+  .rem{font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;margin-top:7px}
+  .btnrow{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+  .link{font-size:13px;font-weight:400;color:var(--ink-2);text-decoration:underline;cursor:pointer;background:none;border:0;padding:0;font-family:inherit}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+  .sheet{background:var(--card);color:var(--ink);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+  .sheet h3{margin:0 0 12px;font-size:17px}
+  .sheet label{display:block;font-size:13px;color:var(--ink-2);margin:10px 0 4px}
+  .sheet input[type=text],.sheet input[type=date],.sheet input[type=time]{font:inherit;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink)}
+  .sheet .chk{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px;color:var(--ink)}
+  .sheet .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+  .sheet .actions button{padding:11px 10px;border-radius:12px;font-weight:600}
+  .sheet .actions .primary{background:var(--green);color:#fff;border-color:var(--green)}
+  .sheet .cancel{width:100%;margin-top:8px;border:0;background:transparent;color:var(--ink-3)}
   .toast{position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-size:14px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 28px rgba(0,0,0,.25);z-index:9;max-width:92vw}
   .toast button{color:var(--paper);background:transparent;border:1px solid rgba(255,255,255,.4);padding:4px 10px;font-size:13px;white-space:nowrap}
   .toast.err{background:var(--red)}
@@ -203,7 +216,8 @@ async function load(){
       const cuotasT = cuotas.filter(c=>c.activa && c.tarjeta.toLowerCase()===nombre.toLowerCase()).reduce((s,c)=>s+c.cuota,0);
       const varT = varMes.filter(v=>v.medio.toLowerCase()===nombre.toLowerCase()).reduce((s,v)=>s+v.monto,0);
       const auto = /autom/i.test(String(r[3]||""));
-      return {nombre, cierre:r[1], vence:isNum(r[2])?r[2]:null, auto, estimado:fijosT+cuotasT+varT, pagado:pagadoEsteMes("Tarjeta "+nombre), nota:r[8]||""};
+      const venceFecha = isDate(r[9]) ? r[9] : null, cierreFecha = isDate(r[10]) ? r[10] : null;
+      return {nombre, cierre:r[1], vence:venceFecha ? venceFecha.getDate() : (isNum(r[2])?r[2]:null), venceFecha, cierreFecha, auto, estimado:fijosT+cuotasT+varT, pagado:pagadoEsteMes("Tarjeta "+nombre), nota:r[8]||""};
     });
 
     const resto = ingresos - totalFijos - cuotasMes - estimadoVar;
@@ -239,22 +253,24 @@ function render(d){
     what:f.concepto, concepto:f.concepto, monto:f.monto, vence:f.vence, sub:f.nota, done:d.pagadoEsteMes(f.concepto), auto:false, card:false
   }));
   d.tarjetas.forEach(t => manuales.push({
-    what:`Tarjeta ${t.nombre}`, concepto:`Tarjeta ${t.nombre}`, monto:t.estimado, vence:t.vence, auto:t.auto, done:t.pagado, card:true,
-    sub: t.auto ? "Débito automático" : "Estimado del próximo resumen"
+    what:`Tarjeta ${t.nombre}`, concepto:`Tarjeta ${t.nombre}`, monto:t.estimado, vence:t.vence, fecha:t.venceFecha, auto:t.auto, done:t.pagado, card:true,
+    sub: (t.auto ? "Débito automático" : "Estimado del próximo resumen") + (t.venceFecha ? ` · vence el ${t.venceFecha.getDate()}/${t.venceFecha.getMonth()+1}` : "")
   }));
   manuales.sort((a,b) => (a.vence??99)-(b.vence??99));
   lastManuales = manuales;
 
   const dia = today.getDate();
   const rows = manuales.map((m,i) => {
-    const late = !m.done && !m.auto && m.vence && dia > m.vence;
+    const hoy0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const late = !m.done && !m.auto && (m.fecha ? m.fecha < hoy0 : (m.vence && dia > m.vence));
     const cls = m.done ? "done" : m.auto ? "auto" : late ? "late" : "";
     const tag = m.done ? "Pagado" : m.auto ? "Automático" : late ? `Venció el ${m.vence}` : m.vence ? `Hasta el ${m.vence}` : "Sin fecha";
     const btn = (!m.done && !m.auto) ? `<button class="pay" type="button" data-i="${i}" ${API_URL ? "" : 'disabled title="Falta configurar el script de Google"'}>Pagado</button>` : "";
+    const rem = (!m.done && !m.auto && m.vence) ? `<button class="rem" type="button" data-i="${i}">Recordar</button>` : "";
     return `<div class="row ${cls}" data-i="${i}">
-      <div class="day">${m.vence ? `<b>${m.vence}</b><span>${MES_CORTO[today.getMonth()]}</span>` : `<b>—</b>`}</div>
+      <div class="day">${m.vence ? `<b>${m.vence}</b><span>${MES_CORTO[m.fecha ? m.fecha.getMonth() : today.getMonth()]}</span>` : `<b>—</b>`}</div>
       <div><div class="what">${escapeHtml(m.what)}</div><div class="sub">${escapeHtml(m.sub||"")}</div><span class="tag">${tag}</span></div>
-      <div class="amt num"><span>${money(m.monto)}</span>${btn}</div>
+      <div class="amt num"><span>${money(m.monto)}</span><div class="btnrow">${rem}${btn}</div></div>
     </div>`;
   }).join("");
   const pendientes = manuales.filter(m=>!m.done && !m.auto).length;
@@ -287,7 +303,8 @@ function render(d){
       <div class="amt num">${money(f.monto)}</div></div>`).join("");
 
   $("#content").innerHTML = `
-    <h2>Para pagar ${pendientes ? `<span class="muted" style="font-weight:400">· ${pendientes} pendiente${pendientes>1?"s":""}</span>` : `<span class="muted" style="font-weight:400">· todo al día</span>`}</h2>
+    <h2>Para pagar ${pendientes ? `<span class="muted" style="font-weight:400">· ${pendientes} pendiente${pendientes>1?"s":""}</span>` : `<span class="muted" style="font-weight:400">· todo al día</span>`}
+      ${manuales.some(m=>!m.done && !m.auto && m.vence) ? `<button class="link" type="button" id="remAll" style="float:right;margin-top:4px">Recordar todos</button>` : ""}</h2>
     <div class="list">${rows || `<div class="empty">Nada pendiente.</div>`}</div>
 
     <h2>Cuotas <span class="muted" style="font-weight:400">· ${money(d.cuotasMes)} este mes</span></h2>
@@ -351,6 +368,81 @@ document.getElementById("content").addEventListener("click", async e => {
     if (/clave|pin/i.test(err.message)) localStorage.removeItem("fin_pin");
     if (err.message !== "Cancelado") toast("No se guardó: " + err.message, {error:true});
   }
+});
+
+/* ===== Recordatorios en el calendario ===== */
+const TZ = "America/Argentina/Buenos_Aires";
+function pad(n){ return String(n).padStart(2,"0"); }
+function stampLocal(d){ return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`; }
+function remTitle(m){ return m.card ? `Vence ${m.what.replace("Tarjeta ","")}` : `Pagar ${m.what}`; }
+function remDesc(m){ return `Monto: ${money(m.monto)}${m.card ? " (estimado)" : ""}. Marcalo como pagado en ${location.href.split("#")[0]}`; }
+function icsEscape(t){ return String(t).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\n/g,"\\n"); }
+function buildEvent(m, start, monthly){
+  const end = new Date(start.getTime() + 30*60000);
+  const lines = ["BEGIN:VEVENT",
+    `UID:${m.concepto.replace(/\W+/g,"-").toLowerCase()}-${stampLocal(start)}@finanzas`,
+    `DTSTAMP:${stampLocal(new Date())}`,
+    `DTSTART:${stampLocal(start)}`, `DTEND:${stampLocal(end)}`,
+    `SUMMARY:${icsEscape(remTitle(m))}`, `DESCRIPTION:${icsEscape(remDesc(m))}`];
+  if (monthly) lines.push(`RRULE:FREQ=MONTHLY;BYMONTHDAY=${start.getDate()}`);
+  lines.push("BEGIN:VALARM","TRIGGER:-P1D","ACTION:DISPLAY",`DESCRIPTION:Mañana: ${icsEscape(remTitle(m))}`,"END:VALARM",
+             "BEGIN:VALARM","TRIGGER:PT0M","ACTION:DISPLAY",`DESCRIPTION:${icsEscape(remTitle(m))}`,"END:VALARM","END:VEVENT");
+  return lines.join("\r\n");
+}
+function downloadIcs(events, name){
+  const ics = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Finanzas//ES","CALSCALE:GREGORIAN", ...events, "END:VCALENDAR"].join("\r\n");
+  const blob = new Blob([ics], {type:"text/calendar;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); }, 4000);
+}
+function googleCalUrl(m, start, monthly){
+  const end = new Date(start.getTime() + 30*60000);
+  const p = new URLSearchParams({action:"TEMPLATE", text:remTitle(m), dates:`${stampLocal(start)}/${stampLocal(end)}`, details:remDesc(m), ctz:TZ});
+  if (monthly) p.set("recur", `RRULE:FREQ=MONTHLY;BYMONTHDAY=${start.getDate()}`);
+  return "https://calendar.google.com/calendar/render?" + p.toString();
+}
+function dueDate(m){
+  if (m.fecha) return new Date(m.fecha.getFullYear(), m.fecha.getMonth(), m.fecha.getDate());
+  const t = new Date(); let d = new Date(t.getFullYear(), t.getMonth(), m.vence);
+  if (d < new Date(t.getFullYear(), t.getMonth(), t.getDate())) d = new Date(t.getFullYear(), t.getMonth()+1, m.vence); // ya pasó: el mes que viene
+  return d;
+}
+function openReminder(items){
+  const one = items.length === 1;
+  const first = dueDate(items[0]);
+  const ov = document.createElement("div"); ov.className = "overlay";
+  ov.innerHTML = `<div class="sheet" role="dialog" aria-label="Recordatorio">
+    <h3>${one ? escapeHtml(remTitle(items[0])) : `${items.length} recordatorios`}</h3>
+    ${one ? `<label>Fecha</label><input type="date" id="rDate" value="${first.getFullYear()}-${pad(first.getMonth()+1)}-${pad(first.getDate())}">` :
+            `<p class="small muted" style="margin:0">${items.map(m=>`${remTitle(m)} · día ${m.vence}`).join("<br>")}</p>`}
+    <label>Hora</label><input type="time" id="rTime" value="10:00">
+    ${items.every(m=>m.card) ? `<p class="small muted" style="margin:10px 0 0">La fecha de la tarjeta cambia cada mes; este recordatorio es solo para este vencimiento.</p>` :
+      `<label class="chk"><input type="checkbox" id="rMonthly" checked> Repetir todos los meses (no aplica a tarjetas)</label>`}
+    <div class="actions">
+      ${one ? `<button type="button" id="rGoogle">Google Calendar</button>` : ""}
+      <button type="button" class="primary" id="rIcs" ${one ? "" : 'style="grid-column:1 / -1"'}>Calendario del teléfono</button>
+    </div>
+    <button type="button" class="cancel" id="rCancel">Cancelar</button>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", e => { if (e.target === ov) close(); });
+  ov.querySelector("#rCancel").onclick = close;
+  const getStart = m => {
+    const [hh, mm] = (ov.querySelector("#rTime").value || "10:00").split(":").map(Number);
+    let d = one ? new Date(ov.querySelector("#rDate").value + "T00:00:00") : dueDate(m);
+    if (isNaN(d)) d = dueDate(m);
+    d.setHours(hh, mm, 0, 0); return d;
+  };
+  const monthly = m => !m.card && !!(ov.querySelector("#rMonthly")?.checked);
+  if (one) ov.querySelector("#rGoogle").onclick = () => { window.open(googleCalUrl(items[0], getStart(items[0]), monthly(items[0])), "_blank"); close(); };
+  ov.querySelector("#rIcs").onclick = () => { downloadIcs(items.map(m => buildEvent(m, getStart(m), monthly(m))), one ? `${remTitle(items[0])}.ics` : "vencimientos.ics"); close(); toast("Abrí el archivo para agregarlo al calendario"); };
+}
+document.getElementById("content").addEventListener("click", e => {
+  const r = e.target.closest(".rem");
+  if (r){ const m = lastManuales[+r.dataset.i]; if (m) openReminder([m]); return; }
+  if (e.target.closest("#remAll")){ openReminder(lastManuales.filter(m => !m.done && !m.auto && m.vence)); }
 });
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
