@@ -217,7 +217,8 @@ async function load(){
       const varT = varMes.filter(v=>v.medio.toLowerCase()===nombre.toLowerCase()).reduce((s,v)=>s+v.monto,0);
       const auto = /autom/i.test(String(r[3]||""));
       const venceFecha = isDate(r[9]) ? r[9] : null, cierreFecha = isDate(r[10]) ? r[10] : null;
-      return {nombre, cierre:r[1], vence:venceFecha ? venceFecha.getDate() : (isNum(r[2])?r[2]:null), venceFecha, cierreFecha, auto, estimado:fijosT+cuotasT+varT, pagado:pagadoEsteMes("Tarjeta "+nombre), nota:r[8]||""};
+      const real = isNum(r[11]) ? r[11] : null; // columna L: total real del próximo resumen, si ya se conoce
+      return {nombre, cierre:r[1], vence:venceFecha ? venceFecha.getDate() : (isNum(r[2])?r[2]:null), venceFecha, cierreFecha, auto, real, estimado: real ?? (fijosT+cuotasT+varT), pagado:pagadoEsteMes("Tarjeta "+nombre), nota:r[8]||""};
     });
 
     const resto = ingresos - totalFijos - cuotasMes - estimadoVar;
@@ -254,7 +255,7 @@ function render(d){
   }));
   d.tarjetas.forEach(t => manuales.push({
     what:`Tarjeta ${t.nombre}`, concepto:`Tarjeta ${t.nombre}`, monto:t.estimado, vence:t.vence, fecha:t.venceFecha, auto:t.auto, done:t.pagado, card:true,
-    sub: (t.auto ? "Débito automático" : "Estimado del próximo resumen") + (t.venceFecha ? ` · vence el ${t.venceFecha.getDate()}/${t.venceFecha.getMonth()+1}` : "")
+    sub: (t.auto ? "Débito automático" : (t.real ? "Total del resumen, sin impuestos" : "Estimado del próximo resumen")) + (t.venceFecha ? ` · vence el ${t.venceFecha.getDate()}/${t.venceFecha.getMonth()+1}` : "")
   }));
   manuales.sort((a,b) => (a.vence??99)-(b.vence??99));
   lastManuales = manuales;
